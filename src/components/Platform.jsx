@@ -1406,13 +1406,13 @@ const styles = {
     top: 0,
     left: 0,
     right: 0,
-    height: 96,
+    height: 78,
     background: '#0F1117',
     borderBottom: '1px solid #252836',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '18px 24px',
+    padding: '10px 18px',
     boxSizing: 'border-box',
     zIndex: 998
   },
@@ -1424,8 +1424,8 @@ const styles = {
   },
 
   mobileAvatar: {
-    width: 52,
-    height: 52,
+    width: 44,
+    height: 44,
     borderRadius: '50%',
     border: '3px solid #FF6B35',
     color: '#FF6B35',
@@ -1433,24 +1433,24 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     fontWeight: 900,
-    fontSize: 18
+    fontSize: 16
   },
 
   mobileUserName: {
     color: 'white',
     fontWeight: 900,
-    fontSize: 20
+    fontSize: 15
   },
 
   mobileRole: {
     color: '#64748b',
-    fontSize: 15,
+    fontSize: 12,
     marginTop: 3
   },
 
   mobileMenuBtn: {
-    width: 58,
-    height: 58,
+    width: 48,
+    height: 48,
     borderRadius: 18,
     border: 'none',
     background: '#1C1F2E',
