@@ -1,10 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import GanttSayfa from './pages/GanttSayfa';
 import { EkipSayfa } from './pages/EkipSayfa.jsx';
 import RaporlarSayfa from './pages/RaporlarSayfa.jsx';
 import { AyarlarSayfa } from './pages/AyarlarSayfa.jsx';
 
 const DURUMLAR = ['Bekliyor', 'Devam Ediyor', 'Tamamlandı', 'İptal'];
+
+// Hook: pencere genişliğini reaktif olarak takip eder
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return isMobile;
+}
 
 export default function Platform({
   kul,
@@ -22,7 +33,7 @@ export default function Platform({
   const [duzenleAcik, setDuzenleAcik] = useState(false);
   const [mobilMenuAcik, setMobilMenuAcik] = useState(false);
 
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = useIsMobile();
 
   function rolNormalize(rol) {
     return String(rol || '').toLowerCase();
@@ -76,57 +87,34 @@ export default function Platform({
 
   function altKisiIdleri(kisiId, ziyaretEdilenler = new Set()) {
     const id = Number(kisiId);
-
-    if (ziyaretEdilenler.has(id)) {
-        return [];
-    }
-
+    if (ziyaretEdilenler.has(id)) return [];
     ziyaretEdilenler.add(id);
-
     const direktAltlar = kullanicilar.filter(
-        k => Number(k.ustKisiId) === id && Number(k.id) !== id
+      k => Number(k.ustKisiId) === id && Number(k.id) !== id
     );
-
     let tumAltlar = [];
-
     direktAltlar.forEach(alt => {
-        const altId = Number(alt.id);
-
-        if (!ziyaretEdilenler.has(altId)) {
+      const altId = Number(alt.id);
+      if (!ziyaretEdilenler.has(altId)) {
         tumAltlar.push(altId);
-        tumAltlar = [
-            ...tumAltlar,
-            ...altKisiIdleri(altId, ziyaretEdilenler)
-        ];
-        }
+        tumAltlar = [...tumAltlar, ...altKisiIdleri(altId, ziyaretEdilenler)];
+      }
     });
-
     return tumAltlar;
   }
 
   function gorevinAtananlari(gorev) {
-    if (Array.isArray(gorev.atananlar)) {
-      return gorev.atananlar.map(Number);
-    }
-
-    if (gorev.atanan) {
-      return [Number(gorev.atanan)];
-    }
-
+    if (Array.isArray(gorev.atananlar)) return gorev.atananlar.map(Number);
+    if (gorev.atanan) return [Number(gorev.atanan)];
     return [];
   }
 
-  const gorulecekKisiIdleri = [
-    Number(kul.id),
-    ...altKisiIdleri(kul.id)
-  ];
+  const gorulecekKisiIdleri = [Number(kul.id), ...altKisiIdleri(kul.id)];
 
   const gorunenGorevler = yoneticiMi
     ? gorevler
     : gorevler.filter(g =>
-        gorevinAtananlari(g).some(id =>
-          gorulecekKisiIdleri.includes(Number(id))
-        )
+        gorevinAtananlari(g).some(id => gorulecekKisiIdleri.includes(Number(id)))
       );
 
   const toplam = gorunenGorevler.length;
@@ -150,22 +138,27 @@ export default function Platform({
         setDuzenleAcik(false);
       }
     }
-
     window.addEventListener('keydown', escKapat);
     return () => window.removeEventListener('keydown', escKapat);
   }, []);
 
+  // Mobil menü açıkken dışarı tıklayınca kapat
+  useEffect(() => {
+    if (!mobilMenuAcik) return;
+    function handler(e) {
+      setMobilMenuAcik(false);
+    }
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [mobilMenuAcik]);
+
   function gunFarki(tarih) {
     if (!tarih) return '';
-
     const bugun = new Date();
     const hedef = new Date(tarih);
-
     bugun.setHours(0, 0, 0, 0);
     hedef.setHours(0, 0, 0, 0);
-
     const fark = Math.ceil((hedef - bugun) / 86400000);
-
     if (fark < 0) return `${Math.abs(fark)}g geçti`;
     if (fark === 0) return 'Bugün';
     return `${fark}g kaldı`;
@@ -173,7 +166,6 @@ export default function Platform({
 
   function tarihKisa(tarih) {
     if (!tarih) return '-';
-
     return new Date(tarih).toLocaleDateString('tr-TR', {
       day: '2-digit',
       month: 'short',
@@ -198,16 +190,8 @@ export default function Platform({
   }
 
   function gorevEkle() {
-    if (!form.baslik.trim()) {
-      alert('Başlık zorunlu');
-      return;
-    }
-
-    if (!form.atananlar || form.atananlar.length === 0) {
-      alert('En az bir kişi seçmelisin');
-      return;
-    }
-
+    if (!form.baslik.trim()) { alert('Başlık zorunlu'); return; }
+    if (!form.atananlar || form.atananlar.length === 0) { alert('En az bir kişi seçmelisin'); return; }
     const yeni = {
       ...form,
       id: Date.now(),
@@ -218,7 +202,6 @@ export default function Platform({
       tur: form.oncelik,
       dosyalar: []
     };
-
     setGorevler([...gorevler, yeni]);
     setFormAcik(false);
     formSifirla();
@@ -236,9 +219,7 @@ export default function Platform({
 
   function gorevDuzenle() {
     if (!seciliGorev) return;
-
     const atananlar = gorevinAtananlari(seciliGorev);
-
     setForm({
       baslik: seciliGorev.baslik || '',
       aciklama: seciliGorev.aciklama || '',
@@ -252,22 +233,17 @@ export default function Platform({
       tamamlanma: seciliGorev.tamamlanma || 0,
       bolumId: seciliGorev.bolumId || 1
     });
-
     setDuzenleAcik(true);
   }
 
   function atananYazisi(gorev) {
-    return gorevinAtananlari(gorev)
-      .map(id => kullaniciAdi(id))
-      .join(', ');
+    return gorevinAtananlari(gorev).map(id => kullaniciAdi(id)).join(', ');
   }
 
   function dosyaEkle(gorevId, secilenDosyalar) {
     const files = Array.from(secilenDosyalar);
-
     files.forEach(file => {
       const reader = new FileReader();
-
       reader.onload = () => {
         const yeniDosya = {
           id: Date.now() + Math.random(),
@@ -276,36 +252,23 @@ export default function Platform({
           boyut: file.size,
           data: reader.result
         };
-
         setGorevler(prev =>
-          prev.map(g =>
-            g.id === gorevId
-              ? { ...g, dosyalar: [...(g.dosyalar || []), yeniDosya] }
-              : g
-          )
+          prev.map(g => g.id === gorevId ? { ...g, dosyalar: [...(g.dosyalar || []), yeniDosya] } : g)
         );
-
         setSeciliGorev(prev =>
-          prev?.id === gorevId
-            ? { ...prev, dosyalar: [...(prev.dosyalar || []), yeniDosya] }
-            : prev
+          prev?.id === gorevId ? { ...prev, dosyalar: [...(prev.dosyalar || []), yeniDosya] } : prev
         );
       };
-
       reader.readAsDataURL(file);
     });
   }
 
   function dosyaAc(dosya) {
     const yeniPencere = window.open();
-
     if (yeniPencere) {
-      yeniPencere.document.write(`
-        <iframe 
-          src="${dosya.data}" 
-          style="width:100%;height:100vh;border:none;"
-        ></iframe>
-      `);
+      yeniPencere.document.write(
+        `<iframe src="${dosya.data}" style="width:100%;height:100vh;border:none;"></iframe>`
+      );
     }
   }
 
@@ -320,38 +283,53 @@ export default function Platform({
 
   function dosyaSil(gorevId, dosyaId) {
     setGorevler(prev =>
-      prev.map(g =>
-        g.id === gorevId
-          ? { ...g, dosyalar: (g.dosyalar || []).filter(d => d.id !== dosyaId) }
-          : g
-      )
+      prev.map(g => g.id === gorevId ? { ...g, dosyalar: (g.dosyalar || []).filter(d => d.id !== dosyaId) } : g)
     );
-
     setSeciliGorev(prev =>
-      prev?.id === gorevId
-        ? { ...prev, dosyalar: (prev.dosyalar || []).filter(d => d.id !== dosyaId) }
-        : prev
+      prev?.id === gorevId ? { ...prev, dosyalar: (prev.dosyalar || []).filter(d => d.id !== dosyaId) } : prev
     );
   }
 
+  const mainPadding = isMobile ? '90px 14px 100px' : '28px';
+
   return (
-    <div style={styles.app}>
+    <div style={{ minHeight: '100vh', background: '#0F1117', color: 'white', display: 'flex' }}>
+
+      {/* Mobil: overlay backdrop */}
+      {isMobile && mobilMenuAcik && (
+        <div
+          onClick={() => setMobilMenuAcik(false)}
+          style={{
+            position: 'fixed', inset: 0, background: '#00000088',
+            zIndex: 998
+          }}
+        />
+      )}
+
+      {/* Sidebar */}
       <aside
         style={{
-          ...styles.menu,
-          ...(isMobile
-            ? {
-                position: 'fixed',
-                left: mobilMenuAcik ? 0 : '-260px',
-                top: 0,
-                bottom: 0,
-                zIndex: 999,
-                transition: '0.3s'
-              }
-            : {})
+          width: 250,
+          background: '#141620',
+          padding: 18,
+          boxSizing: 'border-box',
+          ...(isMobile ? {
+            position: 'fixed',
+            left: mobilMenuAcik ? 0 : -260,
+            top: 0,
+            bottom: 0,
+            zIndex: 999,
+            transition: 'left 0.28s cubic-bezier(.4,0,.2,1)',
+            overflowY: 'auto'
+          } : {
+            position: 'relative'
+          })
         }}
+        onClick={e => e.stopPropagation()}
       >
-        <div style={styles.logo}>İŞ TAKİP</div>
+        <div style={{ color: '#FF6B35', fontWeight: 900, letterSpacing: 4, marginBottom: 28, fontSize: 15 }}>
+          İŞ TAKİP
+        </div>
 
         {menuSayfalari.map(s => (
           <button
@@ -364,7 +342,16 @@ export default function Platform({
               setSeciliGorev(null);
             }}
             style={{
-              ...styles.menuBtn,
+              width: '100%',
+              padding: '13px 15px',
+              borderRadius: 14,
+              border: 'none',
+              color: 'white',
+              textAlign: 'left',
+              marginBottom: 6,
+              fontWeight: 800,
+              cursor: 'pointer',
+              fontSize: 15,
               background: sayfa === s ? '#FF6B35' : 'transparent'
             }}
           >
@@ -372,146 +359,159 @@ export default function Platform({
           </button>
         ))}
 
-        <div style={styles.kullaniciKutu}>
-          <b>{kisiAdi(kul)}</b>
-          <div style={{ color: '#64748b', marginTop: 4 }}>{kul.rol}</div>
-          <button onClick={onCikis} style={styles.cikisBtn}>
+        <div style={{
+          marginTop: 32,
+          background: '#1C1F2E',
+          borderRadius: 18,
+          padding: 16
+        }}>
+          <b style={{ fontSize: 14 }}>{kisiAdi(kul)}</b>
+          <div style={{ color: '#64748b', marginTop: 4, fontSize: 13 }}>{kul.rol}</div>
+          <button
+            onClick={onCikis}
+            style={{
+              width: '100%', marginTop: 12, padding: 10, borderRadius: 12,
+              border: 'none', background: '#FF6B35', color: 'white',
+              fontWeight: 800, cursor: 'pointer', fontSize: 14
+            }}
+          >
             Çıkış Yap
           </button>
         </div>
       </aside>
-      {isMobile && !formAcik && !duzenleAcik && !seciliGorev && (
-        <div style={styles.mobileTopBar}>
-          <div style={styles.mobileUser}>
-            <div style={styles.mobileAvatar}>
-              {kul.avatar || 'YN'}
-            </div>
 
+      {/* Mobil üst bar */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, height: 72,
+          background: '#0F1117', borderBottom: '1px solid #252836',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 16px', boxSizing: 'border-box', zIndex: 997
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%',
+              border: '2.5px solid #FF6B35', color: '#FF6B35',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 900, fontSize: 14, background: '#1a1520'
+            }}>
+              {kul.avatar || kisiAdi(kul).split(' ').map(x => x[0]).join('').toUpperCase().slice(0, 2)}
+            </div>
             <div>
-              <div style={styles.mobileUserName}>
-                {kisiAdi(kul)}
-              </div>
-              <div style={styles.mobileRole}>
-                👑 {kul.rol}
-              </div>
+              <div style={{ color: 'white', fontWeight: 900, fontSize: 14 }}>{kisiAdi(kul)}</div>
+              <div style={{ color: '#64748b', fontSize: 11 }}>👑 {kul.rol}</div>
             </div>
           </div>
 
           <button
-            onClick={e => {
-              e.stopPropagation();
-              setMobilMenuAcik(!mobilMenuAcik);
+            onClick={e => { e.stopPropagation(); setMobilMenuAcik(v => !v); }}
+            style={{
+              width: 44, height: 44, borderRadius: 14, border: 'none',
+              background: '#1C1F2E', color: '#cbd5e1', fontSize: 22,
+              fontWeight: 900, cursor: 'pointer', display: 'flex',
+              alignItems: 'center', justifyContent: 'center'
             }}
-            style={styles.mobileMenuBtn}
           >
-            ☰
+            {mobilMenuAcik ? '✕' : '☰'}
           </button>
         </div>
-      )} 
+      )}
+
+      {/* Ana içerik */}
       <main
-        onClick={() => setSeciliGorev(null)}
+        onClick={() => { setSeciliGorev(null); }}
         style={{
-          ...styles.main,
-          ...(isMobile
-            ? {
-                padding: '120px 16px 16px',
-                marginLeft: 0,
-                width: '100%',
-                overflowX: 'hidden'
-              }
-            : {})
+          flex: 1,
+          padding: mainPadding,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          minWidth: 0,
+          // Detay paneli açıkken mobilde kaydırmayı engelle
+          ...(isMobile && seciliGorev ? { overflow: 'hidden' } : {})
         }}
       >
-
-        
-
+        {/* ───── DASHBOARD ───── */}
         {sayfa === 'Dashboard' && (
           <>
-            <div style={{ marginBottom: 30 }}>
-              <div style={{ color: '#64748b', fontSize: 18 }}>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ color: '#64748b', fontSize: isMobile ? 13 : 16 }}>
                 {new Date().toLocaleDateString('tr-TR', {
-                  weekday: 'long',
-                  day: 'numeric',
-                  month: 'long',
-                  year: 'numeric'
+                  weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                 })}
               </div>
-
-              <h1 style={{ fontSize: 42, margin: '12px 0 0' }}>
+              <h1 style={{ fontSize: isMobile ? 26 : 40, margin: '10px 0 0', lineHeight: 1.2 }}>
                 Merhaba, {kisiAdi(kul).split(' ')[0]} 👋
               </h1>
             </div>
 
-            <div style={styles.dashboardOzet}>
-              <OzetKart baslik="Toplam" deger={toplam} />
-              <OzetKart baslik="Bitti" deger={tamam} />
-              <OzetKart baslik="Devam" deger={devam} />
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 12, marginBottom: 8
+            }}>
+              <OzetKart baslik="Toplam" deger={toplam} isMobile={isMobile} />
+              <OzetKart baslik="Bitti" deger={tamam} isMobile={isMobile} />
+              <OzetKart baslik="Devam" deger={devam} isMobile={isMobile} />
               <OzetKart
                 baslik="Geciken"
-                deger={
-                  gorunenGorevler.filter(g => {
-                    if (!g.deadline) return false;
-
-                    const bugun = new Date();
-                    const bitis = new Date(g.deadline);
-
-                    bugun.setHours(0, 0, 0, 0);
-                    bitis.setHours(0, 0, 0, 0);
-
-                    return bitis < bugun && g.durum !== 'Tamamlandı';
-                  }).length
-                }
+                isMobile={isMobile}
+                deger={gorunenGorevler.filter(g => {
+                  if (!g.deadline) return false;
+                  const bugun = new Date(); const bitis = new Date(g.deadline);
+                  bugun.setHours(0,0,0,0); bitis.setHours(0,0,0,0);
+                  return bitis < bugun && g.durum !== 'Tamamlandı';
+                }).length}
               />
             </div>
 
-            <h2 style={{ marginTop: 45, color: '#FF6B35' }}>
+            <h2 style={{ marginTop: 28, color: '#FF6B35', fontSize: isMobile ? 15 : 20 }}>
               ⚠ ACİL DEADLİNELER
             </h2>
-
             {gorunenGorevler
               .filter(g => g.deadline && g.durum !== 'Tamamlandı')
               .slice(0, 3)
               .map(g => (
                 <GorevKart
-                  key={g.id}
-                  g={g}
+                  key={g.id} g={g}
                   secili={seciliGorev?.id === g.id}
                   kisi={atananYazisi(g)}
                   gunFarki={gunFarki}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setSeciliGorev(g);
-                  }}
+                  isMobile={isMobile}
+                  onClick={e => { e.stopPropagation(); setSeciliGorev(g); }}
                 />
               ))}
 
-            <h2 style={{ marginTop: 35, color: '#4ECDC4' }}>
+            <h2 style={{ marginTop: 24, color: '#4ECDC4', fontSize: isMobile ? 15 : 20 }}>
               ◎ DEVAM EDEN
             </h2>
-
             {gorunenGorevler
               .filter(g => g.durum === 'Devam Ediyor')
               .map(g => (
                 <GorevKart
-                  key={g.id}
-                  g={g}
+                  key={g.id} g={g}
                   secili={seciliGorev?.id === g.id}
                   kisi={atananYazisi(g)}
                   gunFarki={gunFarki}
-                  onClick={e => {
-                    e.stopPropagation();
-                    setSeciliGorev(g);
-                  }}
+                  isMobile={isMobile}
+                  onClick={e => { e.stopPropagation(); setSeciliGorev(g); }}
                 />
               ))}
 
             {yoneticiMi && (
               <button
-                onClick={e => {
-                  e.stopPropagation();
-                  setFormAcik(true);
+                onClick={e => { e.stopPropagation(); setFormAcik(true); }}
+                style={{
+                  position: 'fixed',
+                  right: isMobile ? 20 : 35,
+                  bottom: isMobile ? 24 : 35,
+                  width: isMobile ? 60 : 72,
+                  height: isMobile ? 60 : 72,
+                  borderRadius: '50%', border: 'none',
+                  background: '#FF6B35', color: 'white',
+                  fontSize: isMobile ? 36 : 46, fontWeight: 300,
+                  boxShadow: '0 12px 40px #FF6B3566', cursor: 'pointer',
+                  zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}
-                style={styles.floatingBtn}
               >
                 +
               </button>
@@ -519,25 +519,32 @@ export default function Platform({
           </>
         )}
 
+        {/* ───── GÖREVLER ───── */}
         {sayfa === 'Görevler' && (
           <>
-            <div style={styles.sayfaUst}>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: isMobile ? 'flex-start' : 'center',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 12, marginBottom: 8
+            }}>
               <div>
-                <h1 style={styles.baslik}>Görevler</h1>
-                <p style={styles.altYazi}>
-                  {yoneticiMi
-                    ? 'Tüm görevleri yönet'
-                    : 'Kendi görevlerini ve altındaki kişilerin görevlerini takip et'}
+                <h1 style={{ fontSize: isMobile ? 26 : 38, margin: 0 }}>Görevler</h1>
+                <p style={{ color: '#64748b', margin: '6px 0 0', fontSize: isMobile ? 13 : 15 }}>
+                  {yoneticiMi ? 'Tüm görevleri yönet' : 'Görevlerini takip et'}
                 </p>
               </div>
-
               {yoneticiMi && (
                 <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    setFormAcik(true);
+                  onClick={e => { e.stopPropagation(); setFormAcik(true); }}
+                  style={{
+                    padding: isMobile ? '12px 18px' : '14px 22px',
+                    borderRadius: 16, border: 'none',
+                    background: '#FF6B35', color: 'white',
+                    fontWeight: 900, cursor: 'pointer',
+                    fontSize: isMobile ? 14 : 15,
+                    alignSelf: isMobile ? 'flex-end' : 'auto'
                   }}
-                  style={styles.ekleBtn}
                 >
                   + Yeni Görev
                 </button>
@@ -545,30 +552,26 @@ export default function Platform({
             </div>
 
             {gorunenGorevler.length === 0 && (
-              <div style={styles.bosKutu}>Henüz görev yok</div>
+              <div style={{ background: '#1C1F2E', padding: 24, borderRadius: 18, color: '#64748b', marginTop: 16 }}>
+                Henüz görev yok
+              </div>
             )}
 
             {gorunenGorevler.map(g => (
               <GorevKart
-                key={g.id}
-                g={g}
+                key={g.id} g={g}
                 secili={seciliGorev?.id === g.id}
                 kisi={atananYazisi(g)}
                 gunFarki={gunFarki}
-                onClick={e => {
-                  e.stopPropagation();
-                  setSeciliGorev(g);
-                }}
+                isMobile={isMobile}
+                onClick={e => { e.stopPropagation(); setSeciliGorev(g); }}
               />
             ))}
           </>
         )}
 
         {sayfa === 'Gantt' && ganttGorebilir && (
-          <GanttSayfa
-            gorevler={gorunenGorevler}
-            setSeciliGorev={setSeciliGorev}
-          />
+          <GanttSayfa gorevler={gorunenGorevler} setSeciliGorev={setSeciliGorev} />
         )}
 
         {sayfa === 'Ekip' && ekipGorebilir && (
@@ -604,402 +607,246 @@ export default function Platform({
         )}
       </main>
 
+      {/* ───── DETAY PANELİ ───── */}
       {seciliGorev && (
-        <div onClick={e => e.stopPropagation()} style={styles.detayPanel}>
-          <h2>{seciliGorev.baslik}</h2>
-
-          <p style={styles.aciklama}>
-            {seciliGorev.aciklama || 'Açıklama yok'}
-          </p>
-
-          <div style={styles.infoGrid}>
-            <Info baslik="Atanan" deger={atananYazisi(seciliGorev)} />
-            <Info baslik="Başlangıç" deger={tarihKisa(seciliGorev.baslangic)} />
-            <Info
-              baslik="Deadline"
-              deger={tarihKisa(seciliGorev.deadline)}
-              alt={gunFarki(seciliGorev.deadline)}
+        <>
+          {/* Mobil: tam ekran overlay */}
+          {isMobile && (
+            <div
+              style={{
+                position: 'fixed', inset: 0, background: '#00000077', zIndex: 149
+              }}
+              onClick={() => setSeciliGorev(null)}
             />
-          </div>
-
-          <div style={styles.durumGrid}>
-            {DURUMLAR.map(d => (
-              <button
-                key={d}
-                onClick={() => gorevGuncelle(seciliGorev.id, { durum: d })}
-                style={{
-                  ...styles.durumBtn,
-                  border:
-                    seciliGorev.durum === d
-                      ? '2px solid #4ECDC4'
-                      : '2px solid transparent',
-                  color:
-                    d === 'İptal'
-                      ? '#ef4444'
-                      : d === 'Tamamlandı'
-                        ? '#96CEB4'
-                        : d === 'Devam Ediyor'
-                          ? '#4ECDC4'
-                          : '#cbd5e1'
-                }}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-
-          <label style={styles.label}>
-            Tamamlanma: %{seciliGorev.tamamlanma || 0}
-          </label>
-
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={seciliGorev.tamamlanma || 0}
-            onChange={e =>
-              gorevGuncelle(seciliGorev.id, {
-                tamamlanma: Number(e.target.value)
-              })
-            }
-            style={{ width: '100%' }}
-          />
-
-          <label style={styles.label}>
-            📎 Dosyalar ({(seciliGorev.dosyalar || []).length})
-          </label>
-
-          {(seciliGorev.dosyalar || []).length === 0 && (
-            <div style={{ color: '#64748b', marginBottom: 12 }}>
-              Henüz dosya yok
-            </div>
           )}
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'fixed',
+              zIndex: 150,
+              background: '#141620',
+              boxShadow: '0 20px 80px #000',
+              overflowY: 'auto',
+              ...(isMobile ? {
+                left: 0, right: 0, bottom: 0,
+                top: 'auto',
+                maxHeight: '88vh',
+                borderRadius: '24px 24px 0 0',
+                padding: '20px 18px 32px'
+              } : {
+                right: 30, bottom: 20,
+                width: 430,
+                maxHeight: '85vh',
+                borderRadius: 28,
+                padding: 28
+              })
+            }}
+          >
+            {/* Mobil'de kapatma çubuğu */}
+            {isMobile && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ width: 40, height: 4, background: '#2d3250', borderRadius: 4, margin: '0 auto' }} />
+                <button
+                  onClick={() => setSeciliGorev(null)}
+                  style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 22, cursor: 'pointer', padding: 4 }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
-          {(seciliGorev.dosyalar || []).map(d => (
-            <div key={d.id} style={styles.dosyaSatir}>
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ fontWeight: 800 }}>{d.ad}</div>
-                <div style={{ color: '#64748b', fontSize: 12 }}>
-                  {(d.boyut / 1024).toFixed(1)} KB
+            <h2 style={{ fontSize: isMobile ? 20 : 24, marginTop: 0 }}>{seciliGorev.baslik}</h2>
+
+            <p style={{ background: '#252836', color: '#cbd5e1', padding: 14, borderRadius: 14, fontSize: 14 }}>
+              {seciliGorev.aciklama || 'Açıklama yok'}
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+              <Info baslik="Atanan" deger={atananYazisi(seciliGorev)} />
+              <Info baslik="Başlangıç" deger={tarihKisa(seciliGorev.baslangic)} />
+              <Info baslik="Deadline" deger={tarihKisa(seciliGorev.deadline)} alt={gunFarki(seciliGorev.deadline)} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginTop: 16 }}>
+              {DURUMLAR.map(d => (
+                <button
+                  key={d}
+                  onClick={() => gorevGuncelle(seciliGorev.id, { durum: d })}
+                  style={{
+                    padding: isMobile ? 12 : 14,
+                    borderRadius: 14,
+                    background: '#252836',
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    fontSize: isMobile ? 12 : 14,
+                    border: seciliGorev.durum === d ? '2px solid #4ECDC4' : '2px solid transparent',
+                    color: d === 'İptal' ? '#ef4444' : d === 'Tamamlandı' ? '#96CEB4' : d === 'Devam Ediyor' ? '#4ECDC4' : '#cbd5e1'
+                  }}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+
+            <label style={{ display: 'block', color: '#64748b', fontWeight: 900, marginTop: 16, marginBottom: 6, fontSize: 13 }}>
+              Tamamlanma: %{seciliGorev.tamamlanma || 0}
+            </label>
+            <input
+              type="range" min="0" max="100"
+              value={seciliGorev.tamamlanma || 0}
+              onChange={e => gorevGuncelle(seciliGorev.id, { tamamlanma: Number(e.target.value) })}
+              style={{ width: '100%' }}
+            />
+
+            <label style={{ display: 'block', color: '#64748b', fontWeight: 900, marginTop: 14, marginBottom: 6, fontSize: 13 }}>
+              📎 Dosyalar ({(seciliGorev.dosyalar || []).length})
+            </label>
+
+            {(seciliGorev.dosyalar || []).length === 0 && (
+              <div style={{ color: '#64748b', marginBottom: 10, fontSize: 13 }}>Henüz dosya yok</div>
+            )}
+
+            {(seciliGorev.dosyalar || []).map(d => (
+              <div key={d.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                gap: 8, background: '#252836', padding: '10px 12px',
+                borderRadius: 12, marginBottom: 8
+              }}>
+                <div style={{ overflow: 'hidden', flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.ad}</div>
+                  <div style={{ color: '#64748b', fontSize: 11 }}>{(d.boyut / 1024).toFixed(1)} KB</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  {['Aç', 'İndir', 'Sil'].map((label, i) => (
+                    <button
+                      key={label}
+                      onClick={() => i === 0 ? dosyaAc(d) : i === 1 ? dosyaIndir(d) : dosyaSil(seciliGorev.id, d.id)}
+                      style={{
+                        padding: '6px 8px', borderRadius: 8, border: 'none',
+                        background: i === 0 ? '#4ECDC4' : i === 1 ? '#64748b' : '#ef4444',
+                        color: i === 0 ? '#0F1117' : 'white',
+                        fontWeight: 800, cursor: 'pointer', fontSize: 11
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
+            ))}
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => dosyaAc(d)} style={styles.dosyaAcBtn}>
-                  Aç
-                </button>
-
-                <button onClick={() => dosyaIndir(d)} style={styles.dosyaIndirBtn}>
-                  İndir
-                </button>
-
-                <button
-                  onClick={() => dosyaSil(seciliGorev.id, d.id)}
-                  style={styles.dosyaSilBtn}
-                >
-                  Sil
-                </button>
-              </div>
-            </div>
-          ))}
-
-          <input
-            id="dosyaInput"
-            type="file"
-            multiple
-            style={{ display: 'none' }}
-            onChange={e => dosyaEkle(seciliGorev.id, e.target.files)}
-          />
-
-          <button
-            onClick={() => document.getElementById('dosyaInput').click()}
-            style={styles.dosyaEkleBtn}
-          >
-            📎 Dosya Ekle
-          </button>
-
-          {yoneticiMi && (
-            <>
-              <button onClick={gorevDuzenle} style={styles.duzenleBtn}>
-                ✏ Görevi Düzenle
-              </button>
-
-              <button onClick={() => gorevSil(seciliGorev.id)} style={styles.silBtn}>
-                Görevi Sil
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {formAcik && (
-        <div style={styles.modalBg} onClick={() => setFormAcik(false)}>
-          <div style={styles.formPanel} onClick={e => e.stopPropagation()}>
-            <h2>Yeni Görev Ekle</h2>
-
-            <label style={styles.label}>Başlık *</label>
-            <input
-              style={styles.input}
-              value={form.baslik}
-              onChange={e => setForm({ ...form, baslik: e.target.value })}
-            />
-
-            <label style={styles.label}>Açıklama</label>
-            <textarea
-              style={styles.textarea}
-              value={form.aciklama}
-              onChange={e => setForm({ ...form, aciklama: e.target.value })}
-            />
-
-            <div style={styles.formGrid}>
-              <div>
-                <label style={styles.label}>Atanan Kişiler</label>
-                <select
-                  multiple
-                  style={{ ...styles.input, height: 145 }}
-                  value={form.atananlar}
-                  onChange={e => {
-                    const secilenler = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-                    setForm({
-                      ...form,
-                      atananlar: secilenler,
-                      atanan: secilenler[0] || ''
-                    });
-                  }}
-                >
-                  {kullanicilar.filter(k => !yoneticiRolMu(k.rol)).map(k => (
-                    <option key={k.id} value={k.id}>
-                      {kisiAdi(k)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Bölüm</label>
-                <select
-                  style={styles.input}
-                  value={form.bolumId}
-                  onChange={e => setForm({ ...form, bolumId: Number(e.target.value) })}
-                >
-                  {bolumler.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.ad}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Öncelik</label>
-                <select
-                  style={styles.input}
-                  value={form.oncelik}
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      oncelik: e.target.value,
-                      tur: e.target.value
-                    })
-                  }
-                >
-                  <option>Minor</option>
-                  <option>Major</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Durum</label>
-                <select
-                  style={styles.input}
-                  value={form.durum}
-                  onChange={e => setForm({ ...form, durum: e.target.value })}
-                >
-                  <option>Bekliyor</option>
-                  <option>Devam Ediyor</option>
-                  <option>Tamamlandı</option>
-                  <option>İptal</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Başlangıç</label>
-                <input
-                  type="date"
-                  style={styles.input}
-                  value={form.baslangic}
-                  onChange={e => setForm({ ...form, baslangic: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Bitiş / Deadline</label>
-                <input
-                  type="date"
-                  style={styles.input}
-                  value={form.deadline}
-                  onChange={e => setForm({ ...form, deadline: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <button onClick={gorevEkle} style={styles.kaydetBtn}>
-              Kaydet
+            <input id="dosyaInput" type="file" multiple style={{ display: 'none' }}
+              onChange={e => dosyaEkle(seciliGorev.id, e.target.files)} />
+            <button
+              onClick={() => document.getElementById('dosyaInput').click()}
+              style={{
+                width: '100%', padding: 14, borderRadius: 14,
+                border: '2px dashed #2d3250', background: '#252836',
+                color: '#cbd5e1', fontWeight: 900, marginTop: 8,
+                marginBottom: 14, cursor: 'pointer', fontSize: 14
+              }}
+            >
+              📎 Dosya Ekle
             </button>
-          </div>
-        </div>
-      )}
 
-      {duzenleAcik && (
-        <div style={styles.modalBg} onClick={() => setDuzenleAcik(false)}>
-          <div style={styles.formPanel} onClick={e => e.stopPropagation()}>
-            <h2 style={{ marginBottom: 25 }}>✏ Görevi Düzenle</h2>
-
-            <label style={styles.label}>Başlık</label>
-            <input
-              style={styles.input}
-              value={form.baslik}
-              onChange={e => setForm({ ...form, baslik: e.target.value })}
-            />
-
-            <label style={styles.label}>Açıklama</label>
-            <textarea
-              style={styles.textarea}
-              value={form.aciklama}
-              onChange={e => setForm({ ...form, aciklama: e.target.value })}
-            />
-
-            <div style={styles.formGrid}>
-              <div>
-                <label style={styles.label}>Atanan Kişiler</label>
-                <select
-                  multiple
-                  style={{ ...styles.input, height: 145 }}
-                  value={form.atananlar}
-                  onChange={e => {
-                    const secilenler = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-                    setForm({
-                      ...form,
-                      atananlar: secilenler,
-                      atanan: secilenler[0] || ''
-                    });
+            {yoneticiMi && (
+              <>
+                <button
+                  onClick={gorevDuzenle}
+                  style={{
+                    width: '100%', padding: 13, borderRadius: 14, border: 'none',
+                    background: '#252836', color: 'white', marginTop: 8,
+                    fontWeight: 900, fontSize: 14, cursor: 'pointer'
                   }}
                 >
-                  {kullanicilar.filter(k => !yoneticiRolMu(k.rol)).map(k => (
-                    <option key={k.id} value={k.id}>
-                      {kisiAdi(k)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={styles.label}>Bölüm</label>
-                <select
-                  style={styles.input}
-                  value={form.bolumId}
-                  onChange={e => setForm({ ...form, bolumId: Number(e.target.value) })}
+                  ✏ Görevi Düzenle
+                </button>
+                <button
+                  onClick={() => gorevSil(seciliGorev.id)}
+                  style={{
+                    width: '100%', padding: 13, borderRadius: 14, border: 'none',
+                    background: '#ef4444', color: 'white', marginTop: 10,
+                    fontWeight: 900, cursor: 'pointer', fontSize: 14
+                  }}
                 >
-                  {bolumler.map(b => (
-                    <option key={b.id} value={b.id}>
-                      {b.ad}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  Görevi Sil
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
-              <div>
-                <label style={styles.label}>Durum</label>
-                <select
-                  style={styles.input}
-                  value={form.durum}
-                  onChange={e => setForm({ ...form, durum: e.target.value })}
-                >
-                  <option>Bekliyor</option>
-                  <option>Devam Ediyor</option>
-                  <option>Tamamlandı</option>
-                  <option>İptal</option>
-                </select>
-              </div>
+      {/* ───── FORM MODALİ ───── */}
+      {(formAcik || duzenleAcik) && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: '#00000099',
+            display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+            justifyContent: 'center',
+            padding: isMobile ? 0 : 20, zIndex: 200
+          }}
+          onClick={() => { setFormAcik(false); setDuzenleAcik(false); }}
+        >
+          <div
+            style={{
+              background: '#141620',
+              width: isMobile ? '100%' : 680,
+              maxWidth: '100%',
+              maxHeight: isMobile ? '92vh' : '90vh',
+              overflowY: 'auto',
+              borderRadius: isMobile ? '22px 22px 0 0' : 28,
+              padding: isMobile ? '20px 18px 36px' : 30
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Mobil drag handle */}
+            {isMobile && (
+              <div style={{ width: 40, height: 4, background: '#2d3250', borderRadius: 4, margin: '0 auto 18px' }} />
+            )}
 
-              <div>
-                <label style={styles.label}>Öncelik</label>
-                <select
-                  style={styles.input}
-                  value={form.oncelik}
-                  onChange={e =>
-                    setForm({
-                      ...form,
-                      oncelik: e.target.value,
-                      tur: e.target.value
-                    })
-                  }
-                >
-                  <option>Minor</option>
-                  <option>Major</option>
-                </select>
-              </div>
+            <h2 style={{ marginTop: 0, fontSize: isMobile ? 18 : 22 }}>
+              {duzenleAcik ? '✏ Görevi Düzenle' : 'Yeni Görev Ekle'}
+            </h2>
 
-              <div>
-                <label style={styles.label}>Tamamlanma %</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  style={styles.input}
-                  value={form.tamamlanma}
-                  onChange={e =>
-                    setForm({ ...form, tamamlanma: Number(e.target.value) })
-                  }
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Başlangıç</label>
-                <input
-                  type="date"
-                  style={styles.input}
-                  value={form.baslangic}
-                  onChange={e => setForm({ ...form, baslangic: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label style={styles.label}>Deadline</label>
-                <input
-                  type="date"
-                  style={styles.input}
-                  value={form.deadline}
-                  onChange={e => setForm({ ...form, deadline: e.target.value })}
-                />
-              </div>
-            </div>
+            <FormIcerigi
+              form={form}
+              setForm={setForm}
+              kullanicilar={kullanicilar}
+              bolumler={bolumler}
+              yoneticiRolMu={yoneticiRolMu}
+              kisiAdi={kisiAdi}
+              isMobile={isMobile}
+              showTamamlanma={duzenleAcik}
+            />
 
             <button
               onClick={() => {
-                if (!form.atananlar || form.atananlar.length === 0) {
-                  alert('En az bir kişi seçmelisin');
-                  return;
+                if (duzenleAcik) {
+                  if (!form.atananlar || form.atananlar.length === 0) {
+                    alert('En az bir kişi seçmelisin'); return;
+                  }
+                  const guncelForm = {
+                    ...form,
+                    atananlar: form.atananlar.map(Number),
+                    atanan: Number(form.atananlar[0]),
+                    bolumId: Number(form.bolumId),
+                    tamamlanma: Number(form.tamamlanma),
+                    tur: form.oncelik
+                  };
+                  setGorevler(gorevler.map(g => g.id === seciliGorev.id ? { ...g, ...guncelForm } : g));
+                  setSeciliGorev({ ...seciliGorev, ...guncelForm });
+                  setDuzenleAcik(false);
+                } else {
+                  gorevEkle();
                 }
-
-                const guncelForm = {
-                  ...form,
-                  atananlar: form.atananlar.map(Number),
-                  atanan: Number(form.atananlar[0]),
-                  bolumId: Number(form.bolumId),
-                  tamamlanma: Number(form.tamamlanma),
-                  tur: form.oncelik
-                };
-
-                const yeniListe = gorevler.map(g =>
-                  g.id === seciliGorev.id ? { ...g, ...guncelForm } : g
-                );
-
-                setGorevler(yeniListe);
-                setSeciliGorev({ ...seciliGorev, ...guncelForm });
-                setDuzenleAcik(false);
               }}
-              style={styles.kaydetBtn}
+              style={{
+                width: '100%', marginTop: 20, padding: isMobile ? 16 : 18,
+                borderRadius: 16, border: 'none', background: '#FF6B35',
+                color: 'white', fontWeight: 900,
+                fontSize: isMobile ? 16 : 18, cursor: 'pointer'
+              }}
             >
               Kaydet
             </button>
@@ -1010,465 +857,160 @@ export default function Platform({
   );
 }
 
-function OzetKart({ baslik, deger }) {
+// Form alanlarını tekrar kullanılabilir bileşene çektik
+function FormIcerigi({ form, setForm, kullanicilar, bolumler, yoneticiRolMu, kisiAdi, isMobile, showTamamlanma }) {
+  const inputStyle = {
+    width: '100%', boxSizing: 'border-box',
+    padding: isMobile ? 13 : 16, borderRadius: 12,
+    border: '1px solid #2d3250', background: '#252836',
+    color: 'white', fontSize: isMobile ? 15 : 16
+  };
+  const labelStyle = {
+    display: 'block', color: '#64748b', fontWeight: 900,
+    marginTop: 14, marginBottom: 6, fontSize: 13
+  };
+
   return (
-    <div style={styles.ozetKart}>
-      <div style={{ color: '#64748b' }}>{baslik}</div>
-      <div style={{ fontSize: 38, fontWeight: 900 }}>{deger}</div>
+    <>
+      <label style={labelStyle}>Başlık *</label>
+      <input style={inputStyle} value={form.baslik}
+        onChange={e => setForm({ ...form, baslik: e.target.value })} />
+
+      <label style={labelStyle}>Açıklama</label>
+      <textarea style={{ ...inputStyle, height: 90, resize: 'vertical' }}
+        value={form.aciklama}
+        onChange={e => setForm({ ...form, aciklama: e.target.value })} />
+
+      {/* Mobilde tek kolon, masaüstünde 2 kolon */}
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>Atanan Kişiler</label>
+          <select
+            multiple
+            style={{ ...inputStyle, height: 120 }}
+            value={form.atananlar}
+            onChange={e => {
+              const secilenler = Array.from(e.target.selectedOptions).map(o => Number(o.value));
+              setForm({ ...form, atananlar: secilenler, atanan: secilenler[0] || '' });
+            }}
+          >
+            {kullanicilar.filter(k => !yoneticiRolMu(k.rol)).map(k => (
+              <option key={k.id} value={k.id}>{kisiAdi(k)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Bölüm</label>
+          <select style={inputStyle} value={form.bolumId}
+            onChange={e => setForm({ ...form, bolumId: Number(e.target.value) })}>
+            {bolumler.map(b => <option key={b.id} value={b.id}>{b.ad}</option>)}
+          </select>
+
+          <label style={labelStyle}>Öncelik</label>
+          <select style={inputStyle} value={form.oncelik}
+            onChange={e => setForm({ ...form, oncelik: e.target.value, tur: e.target.value })}>
+            <option>Minor</option>
+            <option>Major</option>
+          </select>
+
+          <label style={labelStyle}>Durum</label>
+          <select style={inputStyle} value={form.durum}
+            onChange={e => setForm({ ...form, durum: e.target.value })}>
+            <option>Bekliyor</option>
+            <option>Devam Ediyor</option>
+            <option>Tamamlandı</option>
+            <option>İptal</option>
+          </select>
+        </div>
+
+        <div>
+          <label style={labelStyle}>Başlangıç</label>
+          <input type="date" style={inputStyle} value={form.baslangic}
+            onChange={e => setForm({ ...form, baslangic: e.target.value })} />
+        </div>
+
+        <div>
+          <label style={labelStyle}>Bitiş / Deadline</label>
+          <input type="date" style={inputStyle} value={form.deadline}
+            onChange={e => setForm({ ...form, deadline: e.target.value })} />
+        </div>
+
+        {showTamamlanma && (
+          <div>
+            <label style={labelStyle}>Tamamlanma %</label>
+            <input type="number" min="0" max="100" style={inputStyle}
+              value={form.tamamlanma}
+              onChange={e => setForm({ ...form, tamamlanma: Number(e.target.value) })} />
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function OzetKart({ baslik, deger, isMobile }) {
+  return (
+    <div style={{ background: '#1C1F2E', padding: isMobile ? 16 : 22, borderRadius: 18 }}>
+      <div style={{ color: '#64748b', fontSize: isMobile ? 12 : 14 }}>{baslik}</div>
+      <div style={{ fontSize: isMobile ? 30 : 38, fontWeight: 900 }}>{deger}</div>
     </div>
   );
 }
 
-function GorevKart({ g, secili, kisi, gunFarki, onClick }) {
+function GorevKart({ g, secili, kisi, gunFarki, onClick, isMobile }) {
   return (
     <div
       onClick={onClick}
       style={{
-        ...styles.gorevKart,
+        background: '#1C1F2E',
+        padding: isMobile ? 16 : 22,
+        borderRadius: 18,
+        marginTop: 12,
+        cursor: 'pointer',
+        position: 'relative',
         border: secili ? '2px solid #FF6B35' : '2px solid transparent'
       }}
     >
-      <div style={styles.gorevBaslik}>{g.baslik}</div>
-      <div style={styles.gorevAlt}>{kisi}</div>
+      {/* Öncelik badge - sağ üst */}
+      <span style={{
+        position: 'absolute', right: 14, top: 14,
+        background: '#FF6B3522', color: '#FF6B35',
+        padding: '5px 10px', borderRadius: 10,
+        fontWeight: 900, fontSize: 11
+      }}>
+        {g.oncelik || g.tur}
+      </span>
 
-      <div style={styles.gorevAltSatir}>
-        <span style={styles.durumBadge}>{g.durum}</span>
+      <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 900, paddingRight: 70 }}>{g.baslik}</div>
+      <div style={{ color: '#64748b', marginTop: 6, fontSize: 13 }}>{kisi}</div>
 
-        <div style={styles.progressBg}>
-          <div style={{ ...styles.progress, width: `${g.tamamlanma || 0}%` }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+        <span style={{
+          background: '#4ECDC422', color: '#4ECDC4',
+          padding: '5px 10px', borderRadius: 8, fontWeight: 800, fontSize: 12
+        }}>
+          {g.durum}
+        </span>
+
+        <div style={{ height: 5, background: '#252836', borderRadius: 5, flex: 1, minWidth: 40 }}>
+          <div style={{ height: 5, background: '#FF6B35', borderRadius: 5, width: `${g.tamamlanma || 0}%` }} />
         </div>
 
-        <span style={{ color: '#94a3b8' }}>{gunFarki(g.deadline)}</span>
+        <span style={{ color: '#94a3b8', fontSize: 12, whiteSpace: 'nowrap' }}>
+          {gunFarki(g.deadline)}
+        </span>
       </div>
-
-      <span style={styles.oncelik}>{g.oncelik || g.tur}</span>
     </div>
   );
 }
 
 function Info({ baslik, deger, alt }) {
   return (
-    <div style={styles.info}>
-      <div style={{ color: '#64748b', fontSize: 12, fontWeight: 800 }}>
-        {baslik}
-      </div>
-      <div style={{ fontSize: 18, fontWeight: 800 }}>{deger}</div>
-      {alt && <div style={{ color: '#64748b', marginTop: 4 }}>{alt}</div>}
+    <div style={{ background: '#252836', padding: 14, borderRadius: 14 }}>
+      <div style={{ color: '#64748b', fontSize: 11, fontWeight: 800 }}>{baslik}</div>
+      <div style={{ fontSize: 15, fontWeight: 800, marginTop: 4 }}>{deger}</div>
+      {alt && <div style={{ color: '#64748b', marginTop: 4, fontSize: 12 }}>{alt}</div>}
     </div>
   );
 }
-
-const styles = {
-  app: {
-    minHeight: '100vh',
-    background: '#0F1117',
-    color: 'white',
-    display: 'flex'
-  },
-  menu: {
-    width: 250,
-    background: '#141620',
-    padding: 18,
-    position: 'relative',
-    boxSizing: 'border-box'
-  },
-  logo: {
-    color: '#FF6B35',
-    fontWeight: 900,
-    letterSpacing: 4,
-    marginBottom: 35
-  },
-  menuBtn: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 14,
-    border: 'none',
-    color: 'white',
-    textAlign: 'left',
-    marginBottom: 8,
-    fontWeight: 800,
-    cursor: 'pointer'
-  },
-  kullaniciKutu: {
-    position: 'absolute',
-    bottom: 18,
-    left: 18,
-    right: 18,
-    background: '#1C1F2E',
-    borderRadius: 18,
-    padding: 16
-  },
-  cikisBtn: {
-    width: '100%',
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    border: 'none',
-    background: '#FF6B35',
-    color: 'white',
-    fontWeight: 800,
-    cursor: 'pointer'
-  },
-  main: {
-    flex: 1,
-    padding: 28,
-    overflowY: 'auto'
-  },
-  baslik: {
-    fontSize: 38,
-    margin: 0
-  },
-  altYazi: {
-    color: '#64748b'
-  },
-  ozetKart: {
-    background: '#1C1F2E',
-    padding: 22,
-    borderRadius: 20
-  },
-  dashboardOzet: {
-    display: 'grid',
-    gridTemplateColumns: window.innerWidth <= 768 ? '1fr 1fr' : 'repeat(4,1fr)',
-    gap: 16
-  },
-  sayfaUst: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 20
-  },
-  ekleBtn: {
-    padding: '15px 22px',
-    borderRadius: 18,
-    border: 'none',
-    background: '#FF6B35',
-    color: 'white',
-    fontWeight: 900,
-    cursor: 'pointer'
-  },
-  gorevKart: {
-    background: '#1C1F2E',
-    padding: 22,
-    borderRadius: 22,
-    marginTop: 16,
-    cursor: 'pointer',
-    position: 'relative'
-  },
-  gorevBaslik: {
-    fontSize: 22,
-    fontWeight: 900
-  },
-  gorevAlt: {
-    color: '#64748b',
-    marginTop: 8
-  },
-  gorevAltSatir: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-    marginTop: 18
-  },
-  durumBadge: {
-    background: '#4ECDC422',
-    color: '#4ECDC4',
-    padding: '8px 14px',
-    borderRadius: 10,
-    fontWeight: 800
-  },
-  progressBg: {
-    height: 6,
-    background: '#252836',
-    borderRadius: 6,
-    flex: 1
-  },
-  progress: {
-    height: 6,
-    background: '#FF6B35',
-    borderRadius: 6
-  },
-  oncelik: {
-    position: 'absolute',
-    right: 18,
-    top: 18,
-    background: '#FF6B3522',
-    color: '#FF6B35',
-    padding: '8px 12px',
-    borderRadius: 12,
-    fontWeight: 900
-  },
-  detayPanel: {
-    position: 'fixed',
-    right: window.innerWidth <= 768 ? 10 : 30,
-    left: window.innerWidth <= 768 ? 10 : 'auto',
-    bottom: 20,
-    width: window.innerWidth <= 768 ? 'auto' : 430,
-    maxHeight: '85vh',
-    overflowY: 'auto',
-    background: '#141620',
-    borderRadius: 28,
-    padding: 28,
-    boxShadow: '0 20px 80px #000',
-    zIndex: 100
-  },
-  aciklama: {
-    background: '#252836',
-    color: '#cbd5e1',
-    padding: 16,
-    borderRadius: 16
-  },
-  infoGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2,1fr)',
-    gap: 12
-  },
-  info: {
-    background: '#252836',
-    padding: 16,
-    borderRadius: 16
-  },
-  durumGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2,1fr)',
-    gap: 12,
-    marginTop: 20
-  },
-  durumBtn: {
-    padding: 15,
-    borderRadius: 16,
-    background: '#252836',
-    fontWeight: 900,
-    cursor: 'pointer'
-  },
-  label: {
-    display: 'block',
-    color: '#64748b',
-    fontWeight: 900,
-    marginTop: 18,
-    marginBottom: 8
-  },
-  silBtn: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 16,
-    border: 'none',
-    background: '#ef4444',
-    color: 'white',
-    marginTop: 20,
-    fontWeight: 900,
-    cursor: 'pointer'
-  },
-  modalBg: {
-    position: 'fixed',
-    inset: 0,
-    background: '#00000099',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    zIndex: 200
-  },
-  formPanel: {
-    background: '#141620',
-    width: 700,
-    maxWidth: '100%',
-    maxHeight: '90vh',
-    overflowY: 'auto',
-    borderRadius: 28,
-    padding: 30,
-    marginTop: window.innerWidth <= 768 ? 30 : 0,
-    paddingTop: window.innerWidth <= 768 ? 24 : 30,
-  },
-  input: {
-    width: '100%',
-    boxSizing: 'border-box',
-    padding: 16,
-    borderRadius: 14,
-    border: '1px solid #2d3250',
-    background: '#252836',
-    color: 'white',
-    fontSize: 16
-  },
-  textarea: {
-    width: '100%',
-    height: 110,
-    boxSizing: 'border-box',
-    padding: 16,
-    borderRadius: 14,
-    border: '1px solid #2d3250',
-    background: '#252836',
-    color: 'white',
-    fontSize: 16
-  },
-  formGrid: {
-    display: 'grid',
-    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(2,1fr)',
-    gap: 16
-  },
-  kaydetBtn: {
-    width: '100%',
-    marginTop: 24,
-    padding: 18,
-    borderRadius: 18,
-    border: 'none',
-    background: '#FF6B35',
-    color: 'white',
-    fontWeight: 900,
-    fontSize: 18,
-    cursor: 'pointer'
-  },
-  bosKutu: {
-    background: '#1C1F2E',
-    padding: 30,
-    borderRadius: 20,
-    color: '#64748b',
-    marginTop: 20
-  },
-  floatingBtn: {
-    position: 'fixed',
-    right: 35,
-    bottom: 35,
-    width: 80,
-    height: 80,
-    borderRadius: '50%',
-    border: 'none',
-    background: '#FF6B35',
-    color: 'white',
-    fontSize: 46,
-    fontWeight: 300,
-    boxShadow: '0 20px 60px #FF6B3566',
-    cursor: 'pointer'
-  },
-  dosyaSatir: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    background: '#252836',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8
-  },
-  dosyaAcBtn: {
-    padding: '8px 10px',
-    borderRadius: 10,
-    border: 'none',
-    background: '#4ECDC4',
-    color: '#0F1117',
-    fontWeight: 800,
-    cursor: 'pointer'
-  },
-  dosyaIndirBtn: {
-    padding: '8px 10px',
-    borderRadius: 10,
-    border: 'none',
-    background: '#64748b',
-    color: 'white',
-    fontWeight: 800,
-    cursor: 'pointer'
-  },
-  dosyaSilBtn: {
-    padding: '8px 10px',
-    borderRadius: 10,
-    border: 'none',
-    background: '#ef4444',
-    color: 'white',
-    fontWeight: 800,
-    cursor: 'pointer'
-  },
-  dosyaEkleBtn: {
-    width: '100%',
-    padding: 16,
-    borderRadius: 16,
-    border: '2px dashed #2d3250',
-    background: '#252836',
-    color: '#cbd5e1',
-    fontWeight: 900,
-    marginTop: 10,
-    marginBottom: 18,
-    cursor: 'pointer'
-  },
-  mobileMenuBtn: {
-    position: 'fixed',
-    top: 18,
-    right: 18,
-    zIndex: 1000,
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    border: 'none',
-    background: '#FF6B35',
-    color: 'white',
-    fontSize: 26,
-    fontWeight: 900
-  },
-  mobileTopBar: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 78,
-    background: '#0F1117',
-    borderBottom: '1px solid #252836',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '10px 18px',
-    boxSizing: 'border-box',
-    zIndex: 998
-  },
-
-  mobileUser: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 14
-  },
-
-  mobileAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: '50%',
-    border: '3px solid #FF6B35',
-    color: '#FF6B35',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontWeight: 900,
-    fontSize: 16
-  },
-
-  mobileUserName: {
-    color: 'white',
-    fontWeight: 900,
-    fontSize: 15
-  },
-
-  mobileRole: {
-    color: '#64748b',
-    fontSize: 12,
-    marginTop: 3
-  },
-
-  mobileMenuBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 18,
-    border: 'none',
-    background: '#1C1F2E',
-    color: '#cbd5e1',
-    fontSize: 30,
-    fontWeight: 900
-  },
-
-  duzenleBtn: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 16,
-    border: 'none',
-    background: '#252836',
-    color: 'white',
-    marginTop: 20,
-    fontWeight: 900,
-    fontSize: 16,
-    cursor: 'pointer'
-  }
-};

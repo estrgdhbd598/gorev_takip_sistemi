@@ -4,6 +4,9 @@ import Giris from './components/Giris';
 import Platform from './components/Platform';
 import { supabase } from './supabaseClient';
 
+const [menuAcik, setMenuAcik] = useState(false);
+const [sayfa, setSayfa] = useState('Dashboard');
+
 const ILK_BOLUMLER = [
   { id: 1, ad: 'Kalite', emoji: '🔍', renk: '#FF6B35' },
   { id: 2, ad: 'Üretim', emoji: '⚙️', renk: '#4ECDC4' },
