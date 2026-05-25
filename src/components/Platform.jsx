@@ -356,7 +356,10 @@ export default function Platform({
         {menuSayfalari.map(s => (
           <button
             key={s}
-            onClick={() => setSayfa(s)}
+            onClick={() => {
+              setSayfa(s);
+              setMobilMenuAcik(false);
+            }}
             style={{
               ...styles.menuBtn,
               background: sayfa === s ? '#FF6B35' : 'transparent'
