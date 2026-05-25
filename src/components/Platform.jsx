@@ -782,7 +782,8 @@ export default function Platform({
         <div
           style={{
             position: 'fixed', inset: 0, background: '#00000099',
-            display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
+            display: 'flex',
+            alignItems: isMobile ? 'flex-end' : 'center',
             justifyContent: 'center',
             padding: isMobile ? 0 : 20, zIndex: 200
           }}
@@ -793,63 +794,99 @@ export default function Platform({
               background: '#141620',
               width: isMobile ? '100%' : 680,
               maxWidth: '100%',
-              maxHeight: isMobile ? '92vh' : '90vh',
-              overflowY: 'auto',
-              borderRadius: isMobile ? '22px 22px 0 0' : 28,
-              padding: isMobile ? '20px 18px 36px' : 30
+              /* Mobilde ekranın tamamını kullan, masaüstünde max %90 */
+              height: isMobile ? '100dvh' : 'auto',
+              maxHeight: isMobile ? '100dvh' : '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: isMobile ? 0 : 28,
+              overflow: 'hidden'
             }}
             onClick={e => e.stopPropagation()}
           >
-            {/* Mobil drag handle */}
-            {isMobile && (
-              <div style={{ width: 40, height: 4, background: '#2d3250', borderRadius: 4, margin: '0 auto 18px' }} />
+            {/* Mobil üst bar: başlık + kapat butonu */}
+            {isMobile ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '16px 18px 12px',
+                borderBottom: '1px solid #252836',
+                flexShrink: 0
+              }}>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: 'white' }}>
+                  {duzenleAcik ? '✏ Görevi Düzenle' : 'Yeni Görev Ekle'}
+                </h2>
+                <button
+                  onClick={() => { setFormAcik(false); setDuzenleAcik(false); }}
+                  style={{
+                    background: '#252836', border: 'none', color: '#94a3b8',
+                    borderRadius: 10, width: 36, height: 36,
+                    fontSize: 18, cursor: 'pointer', flexShrink: 0
+                  }}
+                >✕</button>
+              </div>
+            ) : (
+              <h2 style={{ margin: '30px 30px 0', fontSize: 22, fontWeight: 900, color: 'white', flexShrink: 0 }}>
+                {duzenleAcik ? '✏ Görevi Düzenle' : 'Yeni Görev Ekle'}
+              </h2>
             )}
 
-            <h2 style={{ marginTop: 0, fontSize: isMobile ? 18 : 22 }}>
-              {duzenleAcik ? '✏ Görevi Düzenle' : 'Yeni Görev Ekle'}
-            </h2>
+            {/* Kaydırılabilir form alanı */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              padding: isMobile ? '14px 18px' : '16px 30px 20px'
+            }}>
+              <FormIcerigi
+                form={form}
+                setForm={setForm}
+                kullanicilar={kullanicilar}
+                bolumler={bolumler}
+                yoneticiRolMu={yoneticiRolMu}
+                kisiAdi={kisiAdi}
+                isMobile={isMobile}
+                showTamamlanma={duzenleAcik}
+              />
+            </div>
 
-            <FormIcerigi
-              form={form}
-              setForm={setForm}
-              kullanicilar={kullanicilar}
-              bolumler={bolumler}
-              yoneticiRolMu={yoneticiRolMu}
-              kisiAdi={kisiAdi}
-              isMobile={isMobile}
-              showTamamlanma={duzenleAcik}
-            />
-
-            <button
-              onClick={() => {
-                if (duzenleAcik) {
-                  if (!form.atananlar || form.atananlar.length === 0) {
-                    alert('En az bir kişi seçmelisin'); return;
+            {/* Sabit alt: Kaydet butonu */}
+            <div style={{
+              padding: isMobile ? '12px 18px 28px' : '12px 30px 24px',
+              borderTop: '1px solid #252836',
+              flexShrink: 0,
+              background: '#141620'
+            }}>
+              <button
+                onClick={() => {
+                  if (duzenleAcik) {
+                    if (!form.atananlar || form.atananlar.length === 0) {
+                      alert('En az bir kişi seçmelisin'); return;
+                    }
+                    const guncelForm = {
+                      ...form,
+                      atananlar: form.atananlar.map(Number),
+                      atanan: Number(form.atananlar[0]),
+                      bolumId: Number(form.bolumId),
+                      tamamlanma: Number(form.tamamlanma),
+                      tur: form.oncelik
+                    };
+                    setGorevler(gorevler.map(g => g.id === seciliGorev.id ? { ...g, ...guncelForm } : g));
+                    setSeciliGorev({ ...seciliGorev, ...guncelForm });
+                    setDuzenleAcik(false);
+                  } else {
+                    gorevEkle();
                   }
-                  const guncelForm = {
-                    ...form,
-                    atananlar: form.atananlar.map(Number),
-                    atanan: Number(form.atananlar[0]),
-                    bolumId: Number(form.bolumId),
-                    tamamlanma: Number(form.tamamlanma),
-                    tur: form.oncelik
-                  };
-                  setGorevler(gorevler.map(g => g.id === seciliGorev.id ? { ...g, ...guncelForm } : g));
-                  setSeciliGorev({ ...seciliGorev, ...guncelForm });
-                  setDuzenleAcik(false);
-                } else {
-                  gorevEkle();
-                }
-              }}
-              style={{
-                width: '100%', marginTop: 20, padding: isMobile ? 16 : 18,
-                borderRadius: 16, border: 'none', background: '#FF6B35',
-                color: 'white', fontWeight: 900,
-                fontSize: isMobile ? 16 : 18, cursor: 'pointer'
-              }}
-            >
-              Kaydet
-            </button>
+                }}
+                style={{
+                  width: '100%', padding: isMobile ? 16 : 18,
+                  borderRadius: 16, border: 'none', background: '#FF6B35',
+                  color: 'white', fontWeight: 900,
+                  fontSize: isMobile ? 16 : 18, cursor: 'pointer'
+                }}
+              >
+                Kaydet
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -881,39 +918,37 @@ function FormIcerigi({ form, setForm, kullanicilar, bolumler, yoneticiRolMu, kis
         value={form.aciklama}
         onChange={e => setForm({ ...form, aciklama: e.target.value })} />
 
-      {/* Mobilde tek kolon, masaüstünde 2 kolon */}
+      <label style={labelStyle}>Atanan Kişiler</label>
+      <select
+        multiple
+        style={{ ...inputStyle, height: isMobile ? 100 : 120 }}
+        value={form.atananlar}
+        onChange={e => {
+          const secilenler = Array.from(e.target.selectedOptions).map(o => Number(o.value));
+          setForm({ ...form, atananlar: secilenler, atanan: secilenler[0] || '' });
+        }}
+      >
+        {kullanicilar.filter(k => !yoneticiRolMu(k.rol)).map(k => (
+          <option key={k.id} value={k.id}>{kisiAdi(k)}</option>
+        ))}
+      </select>
+
+      <label style={labelStyle}>Bölüm</label>
+      <select style={inputStyle} value={form.bolumId}
+        onChange={e => setForm({ ...form, bolumId: Number(e.target.value) })}>
+        {bolumler.map(b => <option key={b.id} value={b.id}>{b.ad}</option>)}
+      </select>
+
       <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={labelStyle}>Atanan Kişiler</label>
-          <select
-            multiple
-            style={{ ...inputStyle, height: 120 }}
-            value={form.atananlar}
-            onChange={e => {
-              const secilenler = Array.from(e.target.selectedOptions).map(o => Number(o.value));
-              setForm({ ...form, atananlar: secilenler, atanan: secilenler[0] || '' });
-            }}
-          >
-            {kullanicilar.filter(k => !yoneticiRolMu(k.rol)).map(k => (
-              <option key={k.id} value={k.id}>{kisiAdi(k)}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label style={labelStyle}>Bölüm</label>
-          <select style={inputStyle} value={form.bolumId}
-            onChange={e => setForm({ ...form, bolumId: Number(e.target.value) })}>
-            {bolumler.map(b => <option key={b.id} value={b.id}>{b.ad}</option>)}
-          </select>
-
           <label style={labelStyle}>Öncelik</label>
           <select style={inputStyle} value={form.oncelik}
             onChange={e => setForm({ ...form, oncelik: e.target.value, tur: e.target.value })}>
             <option>Minor</option>
             <option>Major</option>
           </select>
-
+        </div>
+        <div>
           <label style={labelStyle}>Durum</label>
           <select style={inputStyle} value={form.durum}
             onChange={e => setForm({ ...form, durum: e.target.value })}>
@@ -923,28 +958,29 @@ function FormIcerigi({ form, setForm, kullanicilar, bolumler, yoneticiRolMu, kis
             <option>İptal</option>
           </select>
         </div>
+      </div>
 
+      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
         <div>
           <label style={labelStyle}>Başlangıç</label>
           <input type="date" style={inputStyle} value={form.baslangic}
             onChange={e => setForm({ ...form, baslangic: e.target.value })} />
         </div>
-
         <div>
           <label style={labelStyle}>Bitiş / Deadline</label>
           <input type="date" style={inputStyle} value={form.deadline}
             onChange={e => setForm({ ...form, deadline: e.target.value })} />
         </div>
-
-        {showTamamlanma && (
-          <div>
-            <label style={labelStyle}>Tamamlanma %</label>
-            <input type="number" min="0" max="100" style={inputStyle}
-              value={form.tamamlanma}
-              onChange={e => setForm({ ...form, tamamlanma: Number(e.target.value) })} />
-          </div>
-        )}
       </div>
+
+      {showTamamlanma && (
+        <>
+          <label style={labelStyle}>Tamamlanma %</label>
+          <input type="number" min="0" max="100" style={inputStyle}
+            value={form.tamamlanma}
+            onChange={e => setForm({ ...form, tamamlanma: Number(e.target.value) })} />
+        </>
+      )}
     </>
   );
 }
