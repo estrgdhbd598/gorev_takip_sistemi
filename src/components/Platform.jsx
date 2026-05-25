@@ -20,6 +20,9 @@ export default function Platform({
   const [seciliGorev, setSeciliGorev] = useState(null);
   const [formAcik, setFormAcik] = useState(false);
   const [duzenleAcik, setDuzenleAcik] = useState(false);
+  const [mobilMenuAcik, setMobilMenuAcik] = useState(false);
+
+  const isMobile = window.innerWidth <= 768;
 
   function rolNormalize(rol) {
     return String(rol || '').toLowerCase();
@@ -333,7 +336,21 @@ export default function Platform({
 
   return (
     <div style={styles.app}>
-      <aside style={styles.menu}>
+      <aside
+        style={{
+          ...styles.menu,
+          ...(isMobile
+            ? {
+                position: 'fixed',
+                left: mobilMenuAcik ? 0 : '-260px',
+                top: 0,
+                bottom: 0,
+                zIndex: 999,
+                transition: '0.3s'
+              }
+            : {})
+        }}
+      >
         <div style={styles.logo}>İŞ TAKİP</div>
 
         {menuSayfalari.map(s => (
@@ -358,7 +375,33 @@ export default function Platform({
         </div>
       </aside>
 
-      <main onClick={() => setSeciliGorev(null)} style={styles.main}>
+      <main
+        onClick={() => setSeciliGorev(null)}
+        style={{
+          ...styles.main,
+          ...(isMobile
+            ? {
+                padding: 16,
+                marginLeft: 0,
+                width: '100%',
+                overflowX: 'hidden'
+              }
+            : {})
+        }}
+      >
+
+        {isMobile && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              setMobilMenuAcik(!mobilMenuAcik);
+            }}
+            style={styles.mobileMenuBtn}
+          >
+            ☰
+          </button>
+        )}
+
         {sayfa === 'Dashboard' && (
           <>
             <div style={{ marginBottom: 30 }}>
@@ -1062,7 +1105,7 @@ const styles = {
   },
   dashboardOzet: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(4,1fr)',
+    gridTemplateColumns: window.innerWidth <= 768 ? '1fr 1fr' : 'repeat(4,1fr)',
     gap: 16
   },
   sayfaUst: {
@@ -1132,10 +1175,10 @@ const styles = {
   },
   detayPanel: {
     position: 'fixed',
-    right: 30,
-    bottom: 30,
-    width: 430,
-    maxWidth: 'calc(100vw - 40px)',
+    right: window.innerWidth <= 768 ? 10 : 30,
+    left: window.innerWidth <= 768 ? 10 : 'auto',
+    bottom: 20,
+    width: window.innerWidth <= 768 ? 'auto' : 430,
     maxHeight: '85vh',
     overflowY: 'auto',
     background: '#141620',
@@ -1233,7 +1276,7 @@ const styles = {
   },
   formGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2,1fr)',
+    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(2,1fr)',
     gap: 16
   },
   kaydetBtn: {
@@ -1318,6 +1361,20 @@ const styles = {
     marginTop: 10,
     marginBottom: 18,
     cursor: 'pointer'
+  },
+  mobileMenuBtn: {
+    position: 'fixed',
+    top: 18,
+    right: 18,
+    zIndex: 1000,
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    border: 'none',
+    background: '#FF6B35',
+    color: 'white',
+    fontSize: 26,
+    fontWeight: 900
   },
   duzenleBtn: {
     width: '100%',
