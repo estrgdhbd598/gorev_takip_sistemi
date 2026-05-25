@@ -380,23 +380,23 @@ export default function Platform({
           </button>
         </div>
       </aside>
+      {isMobile && (
+        <div style={styles.mobileTopBar}>
+          <div style={styles.mobileUser}>
+            <div style={styles.mobileAvatar}>
+              {kul.avatar || 'YN'}
+            </div>
 
-      <main
-        onClick={() => setSeciliGorev(null)}
-        style={{
-          ...styles.main,
-          ...(isMobile
-            ? {
-                padding: 16,
-                marginLeft: 0,
-                width: '100%',
-                overflowX: 'hidden'
-              }
-            : {})
-        }}
-      >
+            <div>
+              <div style={styles.mobileUserName}>
+                {kisiAdi(kul)}
+              </div>
+              <div style={styles.mobileRole}>
+                👑 {kul.rol}
+              </div>
+            </div>
+          </div>
 
-        {isMobile && (
           <button
             onClick={e => {
               e.stopPropagation();
@@ -406,7 +406,24 @@ export default function Platform({
           >
             ☰
           </button>
-        )}
+        </div>
+      )} 
+      <main
+        onClick={() => setSeciliGorev(null)}
+        style={{
+          ...styles.main,
+          ...(isMobile
+            ? {
+                padding: '120px 16px 16px',
+                marginLeft: 0,
+                width: '100%',
+                overflowX: 'hidden'
+              }
+            : {})
+        }}
+      >
+
+        
 
         {sayfa === 'Dashboard' && (
           <>
@@ -1382,6 +1399,64 @@ const styles = {
     fontSize: 26,
     fontWeight: 900
   },
+  mobileTopBar: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 96,
+    background: '#0F1117',
+    borderBottom: '1px solid #252836',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '18px 24px',
+    boxSizing: 'border-box',
+    zIndex: 998
+  },
+
+  mobileUser: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14
+  },
+
+  mobileAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: '50%',
+    border: '3px solid #FF6B35',
+    color: '#FF6B35',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: 900,
+    fontSize: 18
+  },
+
+  mobileUserName: {
+    color: 'white',
+    fontWeight: 900,
+    fontSize: 20
+  },
+
+  mobileRole: {
+    color: '#64748b',
+    fontSize: 15,
+    marginTop: 3
+  },
+
+  mobileMenuBtn: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+    border: 'none',
+    background: '#1C1F2E',
+    color: '#cbd5e1',
+    fontSize: 30,
+    fontWeight: 900
+  },
+
   duzenleBtn: {
     width: '100%',
     padding: 15,
