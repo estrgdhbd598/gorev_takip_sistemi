@@ -380,7 +380,7 @@ export default function Platform({
           </button>
         </div>
       </aside>
-      {isMobile && (
+      {isMobile && !formAcik && !duzenleAcik && !seciliGorev && (
         <div style={styles.mobileTopBar}>
           <div style={styles.mobileUser}>
             <div style={styles.mobileAvatar}>
@@ -1274,7 +1274,9 @@ const styles = {
     maxHeight: '90vh',
     overflowY: 'auto',
     borderRadius: 28,
-    padding: 30
+    padding: 30,
+    marginTop: window.innerWidth <= 768 ? 30 : 0,
+    paddingTop: window.innerWidth <= 768 ? 24 : 30,
   },
   input: {
     width: '100%',
