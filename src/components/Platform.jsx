@@ -359,6 +359,9 @@ export default function Platform({
             onClick={() => {
               setSayfa(s);
               setMobilMenuAcik(false);
+              setFormAcik(false);
+              setDuzenleAcik(false);
+              setSeciliGorev(null);
             }}
             style={{
               ...styles.menuBtn,
